@@ -40,7 +40,7 @@ COPY runva_webapi_docker.json irene/runva_webapi.json
 COPY docker_plugins irene/plugins
 
 # Copy downloaded Vosk model
-COPY /home/downloader/models/ ./vosk-models/
+COPY --link --chown=1000:1000 --from=vosk-downloader /home/downloader/models/ ./vosk-models/
 
 EXPOSE 5003
 
