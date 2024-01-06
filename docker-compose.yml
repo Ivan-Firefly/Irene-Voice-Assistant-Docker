@@ -1,8 +1,8 @@
 version: '3.5'
 services:
   va:
-    image: Irene-VA-Docker
-    container_name: Irene-VA-Docker
+    image: irene-va-docker
+    container_name: irene-va-docker
     devices:
       - /dev/snd:/dev/snd
     volumes: 
