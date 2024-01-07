@@ -13,14 +13,14 @@
 
 Добавлен `docker-compose.yml` для удобного запуска контейнера. После старта, в текущей директории создается папка `irene_options`, куда выносятся основные настройки Ирины и запущеных плагинов.
 
-Первый запуск контейнера может быть долгим (будет скачиваться модель vosk-model-tts-ru) и он пройдет с ошибками:
+Первый запуск контейнера может быть долгим (будет скачиваться модель vosk-model-tts-ru) и он пройдет с ошибками (так и должно быть):
 ```
 irene-va-docker  | Traceback (most recent call last):
 irene-va-docker  |   File "/home/python/irene/vacore.py", line 143, in setup_assistant_voice
 irene-va-docker  |     self.playwavs[self.playWavEngineId][0](self)
 irene-va-docker  | KeyError: 'consolewav'
 ```
-- это нормально. Нужно остановить контейнер, раскомментировать последнюю строчку в разделе **volumes** в `docker-compose.yml`:
+Нужно остановить контейнер, раскомментировать последнюю строчку в разделе **volumes** в `docker-compose.yml`:
 
 ```# - /va/runva_webapi.json:/home/python/irene/runva_webapi.json #настройки web сервера```
 
