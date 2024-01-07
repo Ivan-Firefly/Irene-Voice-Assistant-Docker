@@ -20,11 +20,7 @@ irene-va-docker  |   File "/home/python/irene/vacore.py", line 143, in setup_ass
 irene-va-docker  |     self.playwavs[self.playWavEngineId][0](self)
 irene-va-docker  | KeyError: 'consolewav'
 ```
-Нужно остановить контейнер, раскомментировать последнюю строчку в разделе **volumes** в `docker-compose.yml`:
-
-```# - /va/runva_webapi.json:/home/python/irene/runva_webapi.json #настройки web сервера```
-
-В автоматически созданной новой папке `irene_options` в `core.json` выставить настройки:
+Нужно остановить контейнер, в автоматически созданной новой папке `irene_options` в `core.json` выставить настройки:
 1.  ```"playWavEngineId": "sounddevice" ```
 2.  ```"ttsEngineId": "vosk"```
 
