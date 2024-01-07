@@ -17,10 +17,10 @@ RUN --mount=type=cache,target=/var/cache,sharing=locked \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-COPY ./requirements-docker.txt ./requirements.txt
-RUN --mount=type=cache,target=/home/python/.cache pip install --no-cache-dir -r ./requirements.txt
+
 
 # Copy application files
+COPY requirements-docker.txt irene/requirements.txt
 COPY lingua_franca irene/lingua_franca
 COPY media irene/media
 COPY mic_client irene/mic_client
@@ -29,6 +29,7 @@ COPY mpcapi irene/mpcapi
 COPY plugins irene/plugins
 COPY utils irene/utils
 COPY webapi_client irene/webapi_client
+COPY temp irene/temp
 
 COPY localhost.crt irene/localhost.crt
 COPY localhost.key irene/localhost.key
@@ -45,4 +46,4 @@ COPY --link --chown=1000:1000 --from=vosk-downloader /home/downloader/models/ ./
 EXPOSE 5003
 
 WORKDIR /home/python/irene
-ENTRYPOINT ["python", "runva_webapi.py"]
+ENTRYPOINT ["/bin/sh", "-c", "pip install -r requirements.txt && python runva_webapi.py"]
