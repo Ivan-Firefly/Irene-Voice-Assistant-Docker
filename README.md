@@ -28,6 +28,6 @@ irene-va-docker  | KeyError: 'consolewav'
 
 Можно повторно запускаем контейнер, должен быть быстрый страт без ошибок.
 
-**Docker версия (для ARM) тонкого/легкого удаленного клиента лежит тут:**
+**Docker версия (для ARM) тонкого/легкого удаленного клиента:**
 
 https://github.com/Ivan-Firefly/irene-mic-client 
