@@ -24,8 +24,8 @@ irene-va-docker  | KeyError: 'consolewav'
 
 ```# - /va/runva_webapi.json:/home/python/irene/runva_webapi.json #настройки web сервера```
 
-Финальный шаг - в автоматически созданной папке `irene_options` в `core.json` выставить настройки:
+В автоматически созданной новой папке `irene_options` в `core.json` выставить настройки:
 1.  ```"playWavEngineId": "sounddevice" ```
 2.  ```"ttsEngineId": "vosk"```
 
-Повторно запускаем контейнер, должен быть быстрый страт без ошибок.
+Можно повторно запускаем контейнер, должен быть быстрый страт без ошибок.
