@@ -6,8 +6,9 @@ services:
     devices:
       - /dev/snd:/dev/snd
     volumes: 
-      - ./irene_options:/home/python/irene/options #основные настройки
-      - ./docker_plugins:/home/python/irene/plugins #папка для плагинов
+      - ./requirements-docker.txt:/home/python/irene/requirements.txt   #requirements для установки внутри контейнера
+      - ./irene_options:/home/python/irene/options                      #основные настройки
+      - ./docker_plugins:/home/python/irene/plugins                     #папка для плагинов
       - ./runva_webapi_docker.json:/home/python/irene/runva_webapi.json #настройки web сервера     
     ports:
       - 5003:5003
