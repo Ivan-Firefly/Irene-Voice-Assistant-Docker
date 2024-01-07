@@ -1,7 +1,7 @@
 version: '3.5'
 services:
   va:
-    image: irene-va-docker
+    image: firefly27/irene-va-docker
     container_name: irene-va-docker
     devices:
       - /dev/snd:/dev/snd
