@@ -24,7 +24,7 @@ irene-va-docker  | KeyError: 'consolewav'
 ```
 Нужно остановить контейнер, в автоматически созданной новой папке `irene_options` в `core.json` выставить настройки:
 1.  ```"playWavEngineId": "sounddevice" ```
-2.  ```"ttsEngineId": "vosk" # bkb lheujq TTS (не забудьте добавить нажный плагин в `docker_plugins`)```
+2.  ```"ttsEngineId": "vosk" # или другой TTS (не забудьте добавить нажный плагин в docker_plugins)```
 
 Повторно запускаем контейнер, должен быть быстрый страт без ошибок.
 
