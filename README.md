@@ -32,6 +32,9 @@ irene-va-docker  | KeyError: 'consolewav'
 
 Повторно запускаем контейнер, должен быть быстрый страт без ошибок.
 
+**UPD 21.10.2024**
+Добавлен vosk_asr_server и supervisord для возможности запуска удаленных клиентов
+
 **Docker версия тонкого/легкого удаленного клиента:**
 
 https://github.com/Ivan-Firefly/irene-mic-client 
