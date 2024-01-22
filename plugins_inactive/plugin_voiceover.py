@@ -31,10 +31,10 @@ def start_with_options(core:VACore, manifest:dict):
 
 def say(core:VACore, phrase:str):
     if phrase == "":
-        core.say2("Нечего сказать")
+        core.say("Нечего сказать")
         return
 
-    core.say2(phrase)
+    core.say(phrase)
 
 def say_clipboard(core:VACore, phrase:str):
     import win32clipboard
