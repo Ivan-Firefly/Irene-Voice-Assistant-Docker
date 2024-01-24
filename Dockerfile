@@ -17,26 +17,25 @@ RUN --mount=type=cache,target=/var/cache,sharing=locked \
 
 
 # Copy application files
-COPY lingua_franca irene/lingua_franca
-COPY media irene/media
-COPY mic_client irene/mic_client
-COPY model irene/model
-COPY mpcapi irene/mpcapi
-COPY plugins irene/plugins
-COPY utils irene/utils
-COPY webapi_client irene/webapi_client
-COPY requirements-docker.txt irene/requirements.txt
+COPY lingua_franca \
+    media \
+    mic_client \
+    model \
+    plugins \
+    utils \
+    webapi_client \
+    requirements-docker.txt \
+    localhost.crt \
+    localhost.key \
+    jaa.py \
+    vacore.py \
+    runva_webapi.py \
+    options_docker \
+    runva_webapi_docker.json \
+    docker_plugins \
+    vosk_asr_server.py \
+    supervisord.conf /irene/
 
-COPY localhost.crt irene/localhost.crt
-COPY localhost.key irene/localhost.key
-COPY jaa.py irene/jaa.py
-COPY vacore.py irene/vacore.py
-COPY runva_webapi.py irene/runva_webapi.py
-COPY options_docker irene/options
-COPY runva_webapi_docker.json irene/runva_webapi.json
-COPY docker_plugins irene/plugins
-COPY vosk_asr_server.py irene/vosk_asr_server.py
-COPY supervisord.conf irene/supervisord.conf
 
 COPY --link --chown=1000:1000 --from=vosk-downloader /home/downloader/models/ ./vosk-models/
 
