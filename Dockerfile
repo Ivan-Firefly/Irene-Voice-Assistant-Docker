@@ -26,10 +26,8 @@ COPY plugins irene/plugins
 COPY utils irene/utils
 COPY webapi_client irene/webapi_client
 
-
-COPY requirements-docker.txt irene/requirements.txt
-
 COPY localhost.crt \
+    requirements-docker.txt \
     localhost.key \
     jaa.py \
     vacore.py \
@@ -39,7 +37,7 @@ COPY localhost.crt \
 
 COPY --link --chown=1000:1000 --from=vosk-downloader /home/downloader/models/ ./vosk-models/
 
-RUN pip install -r ./irene/requirements.txt \
+RUN pip install -r requirements-docker.txt \
 && mkdir -p irene/temp
 
 EXPOSE 5003
