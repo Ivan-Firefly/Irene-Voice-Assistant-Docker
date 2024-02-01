@@ -6,7 +6,7 @@ services:
     devices:
       - /dev/snd:/dev/snd
     volumes: 
-      - ./requirements-docker.txt:/home/python/irene/requirements.txt   #requirements для установки внутри контейнера
+      - ./requirements-docker.txt:/home/python/irene/requirements-docker.txt   #requirements для установки внутри контейнера
       - ./irene_options:/home/python/irene/options                      #основные настройки
       - ./docker_plugins:/home/python/irene/plugins                     #папка для плагинов
       - ./runva_webapi_docker.json:/home/python/irene/runva_webapi.json #настройка webapi
