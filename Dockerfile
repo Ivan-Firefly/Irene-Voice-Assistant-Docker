@@ -37,7 +37,7 @@ COPY localhost.crt \
 
 COPY --link --chown=1000:1000 --from=vosk-downloader /home/downloader/models/ ./vosk-models/
 
-RUN pip install -r requirements-docker.txt \
+RUN pip install -r irene/requirements-docker.txt \
 && mkdir -p irene/temp
 
 EXPOSE 5003
