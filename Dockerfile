@@ -44,4 +44,4 @@ EXPOSE 5003
 
 WORKDIR /home/python/irene
 
-CMD sh -c  "pip install --no-cache-dir -r requirements.txt && python3 runva_webapi.py & python3 vosk_asr_server.py"
+CMD sh -c  "pip install --no-cache-dir -r requirements-docker.txt && python3 runva_webapi.py & python3 vosk_asr_server.py"
