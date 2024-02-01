@@ -13,4 +13,9 @@ services:
     ports:
       - 5003:5003
       - 5004:5004
+    tty: true
+    logging:
+      driver: syslog
+      options:
+        mode: non-blocking
     restart: unless-stopped
