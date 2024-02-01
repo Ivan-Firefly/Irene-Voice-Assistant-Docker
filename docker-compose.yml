@@ -1,8 +1,8 @@
 version: '3.5'
 services:
-  irene-va-docker:
-    image: firefly27/irene-va-docker
-    container_name: irene-va-docker
+  irene-voice-assistant-docker:
+    image: firefly27/irene-voice-assistant-docker
+    container_name: irene-voice-assistant-docker
     devices:
       - /dev/snd:/dev/snd
     volumes: 
