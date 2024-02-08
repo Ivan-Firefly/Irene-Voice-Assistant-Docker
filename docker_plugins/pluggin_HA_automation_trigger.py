@@ -18,7 +18,7 @@ def start(core:VACore):
         },
 
         "commands": {
-            "хочу|сделай|я буду": HA_event_trigger,
+            "давай": HA_event_trigger,
         }
     }
 
