@@ -8,7 +8,7 @@ modname = os.path.basename(__file__)[:-3] # calculating modname
 # функция на старте
 def start(core:VACore):
     manifest = {
-        "name": "Триггер скриптов Home Assistant",
+        "name": "Триггер автоматизаций Home Assistant",
         "version": "1.0",
         "default_options": {
             "hassio_url": "http://hassio.lan:8123/",
