@@ -1,5 +1,6 @@
 import requests
 import json
+import os
 
 from vacore import VACore
 
