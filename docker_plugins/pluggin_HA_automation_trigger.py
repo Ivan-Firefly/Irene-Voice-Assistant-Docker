@@ -17,48 +17,70 @@ def start(core:VACore):
         },
 
         "commands": {
-            "хочу|сделай|я буду": hassio_run_script,
+            "хочу|сделай|я буду": HA_event_trigger,
         }
     }
+
     return manifest
 
 def start_with_options(core:VACore, manifest:dict):
-    pass
+    headers = {
+        "Authorization": f"Bearer " + options["hassio_key"],
+        "content-type": "application/json",
+    }
+    events = requests.get(options["hassio_url"] + 'api/events', headers=headers).json()
+
+    trigger_events = []
+    for event in events:
+        if event['event'].startswith('!'):
+            trigger_events.append(event['event'][1:])
+    trigger_events = '|'.join(trigger_events)
+
+    events_dict = {}
+    events_dict[trigger_events] = ""
+    merged_keys = '|'.join(list(manifest["commands"].keys()) + list(events_dict.keys()))
+    merged_commands = '|'.join([*manifest['commands'], *events_dict.keys()])
+    manifest['commands'] = {merged_commands: manifest['commands'].popitem()[1]}
+
+    return manifest
 
 
-def main(core:VACore, phrase:str):
+def HA_event_trigger(core:VACore, phrase:str):
     options = core.plugin_options(modname)
+    plugin_commands = core.plugin_manifest(modname)['commands']
 
     if options["hassio_url"] == "" or options["hassio_key"] == "":
         print(options)
         core.play_voice_assistant_speech("Нужен ключ или ссылка для Хоум Ассистента")
         return
+
     try:
         headers = {
             "Authorization": f"Bearer " + options["hassio_key"],
             "content-type": "application/json",
         }
-        phrase='call'
-        events = requests.get(options["hassio_url"]+'api/events', headers=headers).json()
-        matched_webhook = True
+        events = requests.get(options["hassio_url"] + 'api/events', headers=headers).json()
+        matched_event = True
         for event in events:
-            if event["event"] == phrase:
-                requests.post(options["hassio_url"]+'api/events'+ event["event"], headers=headers)
-                script_desc = str(
-                    hassio_scripts[event]["description"])  # бонус: ищем что ответить пользователю из описания скрипта
-                if "ttsreply(" in script_desc and ")" in script_desc.split("ttsreply(")[1]:  # обходимся без re :^)
-                    core.play_voice_assistant_speech(script_desc.split("ttsreply(")[1].split(")")[0])
-                else:  # если в описании ответа нет, выбираем случайный ответ по умолчанию
-                    core.play_voice_assistant_speech(
-                        options["default_reply"][random.randint(0, len(options["default_reply"]) - 1)])
-                matched_webhook = False
+            if phrase in event["event"]:
+                requests.post(options["hassio_url"] + 'api/events/' + event["event"], headers=headers)
+                try:
+                    reply = event["event"].split("=", 1)[1]                   
+                except:
+                    reply=options["default_reply"][random.randint(0, len(options["default_reply"]) - 1)]
+
+                core.play_voice_assistant_speech(reply)
+                print(reply)
+                matched_event = False
                 break
-        if matched_webhook:
+        if matched_event:
             core.play_voice_assistant_speech("Не могу найти нужную автоматизацию")
             print('Не могу найти нужную автоматизацию')
 
     except:
         import traceback
         traceback.print_exc()
-        core.play_voice_assistant_speech("Не получилось выполнить скрипт")
+        reply="Не получилось выполнить скрипт"
+        core.play_voice_assistant_speech(reply)
+        print(reply)
         return
