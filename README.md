@@ -37,4 +37,4 @@ irene-va-docker  | KeyError: 'consolewav'
 
 **Docker версия тонкого/легкого удаленного клиента:**
 
-[[https://github.com/Ivan-Firefly/irene-mic-client ](https://github.com/Ivan-Firefly/Remote-Irene-Docker)](https://github.com/Ivan-Firefly/Remote-Irene-Docker)https://github.com/Ivan-Firefly/Remote-Irene-Docker
+https://github.com/Ivan-Firefly/Remote-Irene-Docker
