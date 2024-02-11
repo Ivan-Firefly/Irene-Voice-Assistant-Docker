@@ -2,7 +2,7 @@
 
 Тут будут описаны только отличия от оригинального репозитория - общее описание, концепцию, доп. плагины - см. тут https://github.com/janvarev/Irene-Voice-Assistant
 
-Docker образ - https://hub.docker.com/r/firefly27/irene-va-docker
+Docker образ - [https://hub.docker.com/r/firefly27/irene-va-docker](https://hub.docker.com/r/firefly27/irene-voice-assistant-docker)
 
 В качестве "говорилки" (TTS) контейнер работает с **Sirelo (v3,v4), vosk, rhvoice_rest**. Для одноплатников советую выбирать **vosk**, ему должно хватать небольших ресурсов малин/апельсин для генерации голоса с приемлемой задержкой и более-менее адекватным качеством.
 
