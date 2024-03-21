@@ -19,4 +19,4 @@ services:
       options:
         mode: non-blocking
     restart: unless-stopped
-    # command: sh -c "pip install --no-cache-dir -r requirements.txt && python3 runva_webapi.py & python3 vosk_asr_server.py"
+    # command: sh -c "pip install --no-cache-dir -r requirements-docker.txt && python3 runva_webapi.py & python3 vosk_asr_server.py"
