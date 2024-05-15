@@ -8,7 +8,7 @@ urls=(
     "https://raw.githubusercontent.com/Ivan-Firefly/Irene-Voice-Assistant-Docker/master/docker_plugins/core.py"
     "https://raw.githubusercontent.com/Ivan-Firefly/Irene-Voice-Assistant-Docker/master/docker_plugins/plugin_datetime.py"
     "https://raw.githubusercontent.com/Ivan-Firefly/Irene-Voice-Assistant-Docker/master/docker_plugins/plugin_greetings.py"
-    "https://raw.githubusercontent.com/Ivan-Firefly/Irene-Voice-Assistant-Docker/master/docker_plugins/plugin_hassio_script_trigger.py"
+    "https://raw.githubusercontent.com/Ivan-Firefly/Irene-Voice-Assistant-Docker/master/docker_plugins/plugin_HA_automation_trigger.py"
     "https://raw.githubusercontent.com/Ivan-Firefly/Irene-Voice-Assistant-Docker/master/docker_plugins/plugin_playwav_sounddevice.py"
     "https://raw.githubusercontent.com/Ivan-Firefly/Irene-Voice-Assistant-Docker/master/docker_plugins/plugin_timer.py"
     "https://raw.githubusercontent.com/Ivan-Firefly/Irene-Voice-Assistant-Docker/master/docker_plugins/plugin_tts_console.py"
