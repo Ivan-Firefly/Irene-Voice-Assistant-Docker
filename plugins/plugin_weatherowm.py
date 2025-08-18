@@ -13,7 +13,7 @@ modname = os.path.basename(__file__)[:-3] # calculating modname
 def start(core:VACore):
     manifest = {
         "name": "Погода (open weather map)",
-        "version": "1.0",
+        "version": "1.1",
         "require_online": True,
 
         "description": """
@@ -30,6 +30,7 @@ def start(core:VACore):
             "country": "RU",
             "lon": 0, # will be auto-calculated base on city. Or you can fill it manual
             "lat": 0,
+            "is_active": False,
         },
 
         "commands": {
@@ -42,6 +43,12 @@ def start(core:VACore):
 def start_with_options(core:VACore, manifest:dict):
 
     options = manifest["options"]
+
+    if options["is_active"]:
+        pass
+    else:
+        manifest["commands"] = {}
+        return manifest
 
     weather_api_key = options["apiKey"]
     if weather_api_key == "":
@@ -113,7 +120,11 @@ def run_weather(core:VACore, phrase:str, addparam:str):
             veter_str = num2text(veter_int,((u'метр', u'метра', u'метров'), 'm'))
             vl_str = num2text(humid,((u'процента', u'процента', u'процентов'), 'm'))
 
-            text = "Сейчас {0}, ощущается как {1}. Влажность {2}, ветер {3} в секунду.".format(
+            text = "Сейчас {0}"
+            if temp != feels_like:
+                text = text + ", ощущается как {1}"
+
+            text = (text + ". Влажность {2}, ветер {3} в секунду. {4}").format(
                     num2text(int(temp)),num2text(int(feels_like)),vl_str,veter_str,data_one_call["daily"][0]["weather"][0]["description"])
             print(text)
             core.play_voice_assistant_speech(text)

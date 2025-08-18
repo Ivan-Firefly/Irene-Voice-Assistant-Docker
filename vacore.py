@@ -1,18 +1,26 @@
+import json
 import os
 import traceback
 import hashlib
+import copy
+
+import requests
 
 from termcolor import colored, cprint
 import time
 from threading import Timer
 
-from typing import Dict
+from typing import Dict, List, Tuple
 
 from jaa import JaaCore
 
 from collections.abc import Callable
 
-version = "10.6.0"
+version = "12.0.0"
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 # main VACore class
 
@@ -37,6 +45,9 @@ class VACore(JaaCore):
         self.playwavs = {
         }
 
+        self.normalizers = {
+        }
+
         self.fuzzy_processors: Dict[str, tuple[Callable,Callable]] = {
         }
 
@@ -49,12 +60,14 @@ class VACore(JaaCore):
         self.version = version
 
         self.voiceAssNames = []
+        self.voiceAssNameRunCmd = {}
 
         self.useTTSCache = False
         self.tts_cache_dir = "tts_cache"
         self.ttsEngineId = ""
         self.ttsEngineId2 = ""
         self.playWavEngineId = ""
+
 
         self.logPolicy = ""
         self.tmpdir = "temp"
@@ -77,6 +90,28 @@ class VACore(JaaCore):
         self.cur_callname:str = ""
 
         self.input_cmd_full:str = ""
+
+        self.fastApiApp = None
+
+        self.log_console = True
+        self.log_console_level = "WARNING"
+        self.log_file = False
+        self.log_file_level = "DEBUG"
+        self.log_file_name = "log.txt"
+
+        self.normalization_engine:str = "" # отвечает за нормализацию текста для русских TTS
+
+        self.plugin_types:list[str] = []
+
+        self.openai_base_url:str = ""
+        self.openai_key:str = ""
+        self.openai_tools_model:str = ""
+        self.openai_tools_system_prompt:str = ""
+        self.openai_generic_model: str = ""
+        self.openai_generic_system_prompt: str = ""
+
+        self.ai_tools:Dict[str, Dict] = {}
+
 
 
     def init_with_plugins(self):
@@ -117,10 +152,20 @@ class VACore(JaaCore):
             for cmd in manifest["playwav"].keys():
                 self.playwavs[cmd] = manifest["playwav"][cmd]
 
+        # adding playwav engines from plugin manifest
+        if "normalizer" in manifest:  # process commands
+            for cmd in manifest["normalizer"].keys():
+                self.normalizers[cmd] = manifest["normalizer"][cmd]
+
         # adding fuzzy processors engines from plugin manifest
         if "fuzzy_processor" in manifest: # process commands
             for cmd in manifest["fuzzy_processor"].keys():
                 self.fuzzy_processors[cmd] = manifest["fuzzy_processor"][cmd]
+
+        # adding ai_tools from plugin manifest
+        if "ai_tools" in manifest:  # process ai_tools
+            for cmd in manifest["ai_tools"].keys():
+                self.ai_tools[cmd] = manifest["ai_tools"][cmd]
 
     def stub_online_required(self,core,phrase):
         self.play_voice_assistant_speech(self.plugin_options("core")["replyOnlineRequired"])
@@ -146,6 +191,16 @@ class VACore(JaaCore):
             self.print_red('Попробуйте установить в options/core.json: "playWavEngineId": "sounddevice"')
             self.print_red('...временно переключаюсь на консольный вывод ответа...')
             self.ttsEngineId = "console"
+
+        # init normalization engine
+        if self.normalization_engine != "none":
+            try:
+                self.normalizers[self.normalization_engine][0](self)
+            except Exception as e:
+                self.print_error(f"Ошибка инициализации нормализатора {self.normalization_engine}", e)
+                self.print_red('Попробуйте установить в options/core.json: "normalization_engine": "none"')
+                self.normalization_engine = "none"
+
 
         # init tts engine
         try:
@@ -182,6 +237,12 @@ class VACore(JaaCore):
                 self.fuzzy_processors[k][0](self)
             except Exception as e:
                 self.print_error("Ошибка инициализации fuzzy_processor {0}".format(k), e)
+
+    def normalize(self, text:str):
+        if self.normalization_engine == "none":
+            return text
+        else:
+            return self.normalizers[self.normalization_engine][1](self, text)
 
     def play_voice_assistant_speech(self,text_to_speech:str):
         self.lastSay = text_to_speech
@@ -333,6 +394,7 @@ class VACore(JaaCore):
                 # print(e)
                 # import traceback
                 # traceback.print_exc()
+                logger.exception(e)
                 res = self.fuzzy_processors[fuzzy_processor_k][1](self, command, context)
 
             # fuzzy processor должен вернуть либо None либо
@@ -346,8 +408,60 @@ class VACore(JaaCore):
 
         return None
 
+    def calc_ai_tools_manifest(self):
+        res = []
+        for ai_tool_name in self.ai_tools.keys():
+            ai_tool = self.ai_tools.get(ai_tool_name)
+            cur = {}
+            if ai_tool.get("v") == "1":
+                cur = copy.deepcopy(ai_tool.get("manifest"))
+                cur["function"]["name"] = ai_tool_name # дополнительный процессинг устанавливает имя
+            else:
+                logger.warning(f"Не могу обработать AI Tool {ai_tool_name} - данная версия V не поддерживается текущей версией Ирины")
+            res.append(cur)
+        return res
+
+
+    def call_ai_tools(self, query: str) -> Tuple[int, str]:
+        """Makes request to API and returns tuple of (status_code, response_text)"""
+        # time.sleep(numb*0.01)
+        try:
+            messages = []
+            if self.openai_tools_system_prompt != "":
+                messages.append({"role": "system", "content": self.openai_tools_system_prompt})
+
+            messages.append({"role": "user", "content": query})
+
+            payload:dict = {
+                    "model": self.openai_tools_model,
+                    "messages": messages,
+                    "temperature": 0.1,
+                    "max_tokens": 4096,
+                    "tool_choice": "auto",
+                }
+
+            payload["tools"] = self.calc_ai_tools_manifest()
+
+            logger.info("AI Call Tool payload")
+            logger.info(payload)
+
+
+            response = requests.post(
+                url=f"{self.openai_base_url}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.openai_key}",
+                    "X-Title": f"Irene Voice Assistant (tools)"
+                },
+                json=payload
+            )
+            return response.status_code, response.text
+        except Exception as e:
+            return 500, str(e)
+
     def execute_next(self,command,context):
+        is_first_call = False
         if context == None: # первый вход
+            is_first_call = True
             context = self.commands
             self.input_cmd_full = command # нужно для василия
 
@@ -361,11 +475,43 @@ class VACore(JaaCore):
             return
 
         try:
-            res = self.find_best_cmd_with_fuzzy(command,context,True)
-            if res is not None:
-                keyall, probability, rest_phrase = res
-                next_context = context[keyall]
-                self.execute_next(rest_phrase, next_context)
+            is_allow_classic_plugins = (not is_first_call) or ("classic" in self.plugin_types)
+            if is_allow_classic_plugins:
+                res = self.find_best_cmd_with_fuzzy(command,context,True)
+                if res is not None:
+                    keyall, probability, rest_phrase = res
+                    next_context = context[keyall]
+                    self.execute_next(rest_phrase, next_context)
+                    return
+
+            if is_first_call and ("ai" in self.plugin_types): # разрешены плагины ИИ
+                res_code, res = self.call_ai_tools(command)
+                logger.info(f"AI tool result code: {res_code}")
+                logger.info(res)
+                # self.say("Вызов успешен!")
+                if res_code == 200: # основной вариант успешного вызова
+                    response = json.loads(res)
+                    message = response["choices"][0]["message"]
+                    if message.get("tool_calls") is not None:
+                        # тулза найдена успешно
+                        tools_param:dict = message["tool_calls"][0].get("function")
+                        func_name = tools_param.get("name")
+                        func_params = json.loads(tools_param.get("arguments"))
+
+                        # непосредственно вызываем процедуру
+                        self.ai_tools[func_name]["function"](self, **func_params)
+                    else:
+                        # Непонятно, нейросеть переспрашивает. Но Контекст не вводим!
+
+                        # этот код позволяет озвучить ответ от нейросети
+                        # answer = message["content"]
+                        # self.say(answer)
+
+                        self.say(self.plugin_options("core")["replyNoCommandFound"])
+                else:
+                    logger.error(["Error during AI call, code", res_code, res])
+                    self.say("Ошибка при вызове ИИ для определения инструмента. Посмотрите логи")
+
                 return
 
             # первый проход - ищем полное совпадение
@@ -416,7 +562,7 @@ class VACore(JaaCore):
                 if self.contextTimer != None:
                     self.context_set(self.context,self.contextTimerLastDuration)
         except Exception as err:
-            print(traceback.format_exc())
+            logger.exception(err)
 
     # fuzzy util
     def fuzzy_get_command_key_from_context(self, predicted_command:str, context:dict):
@@ -429,6 +575,13 @@ class VACore(JaaCore):
         return None
 
     # ----------- timers -----------
+    def util_time_to_readable(self,curtime):
+        import datetime
+        human_readable_date_local = datetime.datetime.fromtimestamp(curtime)
+
+        # Print it in a human-readable format using local time zone
+        return human_readable_date_local.strftime('%Y-%m-%d %H:%M:%S')
+
     def set_timer(self, duration, timerFuncEnd, timerFuncUpd = None):
         # print "Start set_timer!"
         curtime = time.time()
@@ -437,7 +590,7 @@ class VACore(JaaCore):
                 # print "Found timer!"
                 self.timers[i] = curtime+duration  #duration
                 self.timersFuncEnd[i] = timerFuncEnd
-                print("New Timer ID =", str(i), ' curtime=', curtime, 'duration=', duration, 'endtime=', self.timers[i])
+                print("New Timer ID =", str(i), ' curtime=', self.util_time_to_readable(curtime), 'duration=', duration, 'endtime=', self.util_time_to_readable(self.timers[i]))
                 return i
         return -1  # no more timer valid
 
@@ -459,7 +612,7 @@ class VACore(JaaCore):
         for i in range(len(self.timers)):
             if(self.timers[i] > 0):
                 if curtime >= self.timers[i]:
-                    print("End Timer ID =", str(i), ' curtime=', curtime, 'endtime=', self.timers[i])
+                    print("End Timer ID =", str(i), ' curtime=', self.util_time_to_readable(curtime), 'endtime=', self.util_time_to_readable(self.timers[i]))
                     self.clear_timer(i,True)
 
     # --------- calling functions -----------
@@ -509,6 +662,9 @@ class VACore(JaaCore):
 
 
                         command_options = " ".join([str(input_part) for input_part in voice_input[(ind+1):len(voice_input)]])
+                        if callname in self.voiceAssNameRunCmd:
+                            command_options = self.voiceAssNameRunCmd.get(callname)+" "+command_options
+                            print("Modified input, added ", self.voiceAssNameRunCmd.get(callname))
 
                         # running some cmd before run cmd
                         if func_before_run_cmd != None:
@@ -602,3 +758,4 @@ class VACore(JaaCore):
 
     def format_print_key_list(self, key:str, value:list):
         print(colored(key+": ", "blue")+", ".join(value))
+
