@@ -25,18 +25,10 @@ chmod +x download.sh
 
 После старта, в текущей директории создается папка `irene_options`, куда выносятся основные настройки Ирины и запущенных плагинов.
 
-Первый запуск контейнера может быть долгим (будет скачиваться модель TTS и устанавливаться все библиотеки из `requirements-docker.txt`) и он пройдет с ошибками (**так и должно быть**):
-```
-irene-va-docker  | Traceback (most recent call last):
-irene-va-docker  |   File "/home/python/irene/vacore.py", line 143, in setup_assistant_voice
-irene-va-docker  |     self.playwavs[self.playWavEngineId][0](self)
-irene-va-docker  | KeyError: 'consolewav'
-```
-Нужно остановить контейнер, в автоматически созданной новой папке `irene_options` в `core.json` выставить настройки:
+Первый запуск контейнера может быть долгим (будет скачиваться модель TTS и устанавливаться все библиотеки из `requirements-docker.txt`)
+По умолчанию, в автоматически созданной новой папке `irene_options` в `core.json` стоят настройки:
 1.  ```"playWavEngineId": "sounddevice" ```
-2.  ```"ttsEngineId": "vosk" # или другой TTS (не забудьте добавить нужный плагин в docker_plugins)```
-
-Повторно запускаем контейнер, должен быть быстрый страт без ошибок.
+2.  ```"ttsEngineId": "vosk" ```
 
 **UPD 21.10.2023**
 - Добавлен vosk_asr_server для возможности запуска удаленных клиентов
