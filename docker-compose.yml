@@ -19,4 +19,4 @@ services:
       options:
         mode: non-blocking
     restart: unless-stopped
-    # command: sh -c "pip install --no-cache-dir -r requirements-docker.txt && python3 runva_webapi.py & python3 vosk_asr_server.py"
+# не забудьте скачать нужные файлы и плагины для контейнера https://github.com/Ivan-Firefly/Irene-Voice-Assistant-Docker/blob/master/README.md#%D0%B7%D0%B0%D0%BF%D1%83%D1%81%D0%BA
