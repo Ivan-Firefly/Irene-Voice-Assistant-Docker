@@ -32,6 +32,7 @@ COPY localhost.crt \
     jaa.py \
     vacore.py \
     runva_webapi.py \
+    fastapi_utils_tasks.py \
     runva_webapi_docker.json \
     vosk_asr_server.py irene/
 
