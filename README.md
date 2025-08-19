@@ -13,6 +13,7 @@ Docker образ - https://hub.docker.com/r/firefly27/irene-voice-assistant-doc
   2. `plugin_tts_console.py` - убран лишний импорт библиотеки pyttsx
   3. `requirements-docker.txt` - оставлен минимальный набор библиотек
 
+### Запуск
 Добавлен `docker-compose.yml` для удобного запуска контейнера. 
 Перед запуском нужно положить в текущую директорию папку `docker_plugins` (со всем содержимым) и файлы `runva_webapi_docker.json`, `requirements-docker.txt`.
 Для удобства есть скрипт `download.sh`, который все скачает и разместит по нужным папкам. Сделать его исполняемым  и запускать:
