@@ -23,6 +23,7 @@ COPY mic_client irene/mic_client
 COPY model irene/model
 COPY mpcapi irene/mpcapi
 COPY plugins irene/plugins
+COPY eng_to_ipa irene/eng_to_ipa
 COPY utils irene/utils
 COPY webapi_client irene/webapi_client
 
