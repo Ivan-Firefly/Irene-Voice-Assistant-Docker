@@ -16,7 +16,7 @@ from starlette.websockets import WebSocket
 #     exit(-1)
 #from pydantic import BaseModel
 
-from fastapi_utils.tasks import repeat_every
+from fastapi_utils_tasks import repeat_every
 
 
 from vacore import VACore
