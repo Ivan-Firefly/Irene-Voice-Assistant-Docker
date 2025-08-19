@@ -19,4 +19,4 @@ services:
       options:
         mode: non-blocking
     restart: unless-stopped
-# не забудьте скачать нужные файлы и плагины для контейнера https://github.com/Ivan-Firefly/Irene-Voice-Assistant-Docker/blob/master/README.md#%D0%B7%D0%B0%D0%BF%D1%83%D1%81%D0%BA
+# не забудьте скачать нужные файлы и плагины для контейнера https://github.com/Ivan-Firefly/Irene-Voice-Assistant-Docker/blob/master/download.sh
