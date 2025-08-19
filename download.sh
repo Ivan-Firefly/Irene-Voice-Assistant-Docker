@@ -13,6 +13,7 @@ urls=(
     "https://raw.githubusercontent.com/Ivan-Firefly/Irene-Voice-Assistant-Docker/master/docker_plugins/plugin_timer.py"
     "https://raw.githubusercontent.com/Ivan-Firefly/Irene-Voice-Assistant-Docker/master/docker_plugins/plugin_tts_console.py"
     "https://raw.githubusercontent.com/Ivan-Firefly/Irene-Voice-Assistant-Docker/master/docker_plugins/plugin_tts_vosk.py"
+    "https://raw.githubusercontent.com/Ivan-Firefly/Irene-Voice-Assistant-Docker/master/docker_plugins/plugin_normalizer_prepare.py"
 )
 
 # Function to create "docker_plugins" folder
