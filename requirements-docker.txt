@@ -6,12 +6,11 @@
 uvicorn~=0.18.3
 uvicorn[standard]~=0.18.3
 fastapi~=0.81.0
-fastapi-utils
 starlette~=0.19.1
 
 # Распознание и воспроизведение голоса 
 vosk~=0.3.45
-vosk-tts~=0.3.52  
+vosk-tts~=0.3.60  
 #torch~=2.1.2 		#для Sirelo
 
 # Локальные запись и воспроизведение звука
@@ -24,3 +23,4 @@ requests~=2.27.1
 python-dateutil~=2.6.0
 lingua-franca~=0.4.3
 websockets~=12.0
+python-dateutil==2.9.0.post0
