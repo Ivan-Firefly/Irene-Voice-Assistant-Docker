@@ -1,0 +1,303 @@
+import fnmatch
+import json
+import os
+import random
+from openai import OpenAI
+from google import genai
+from google.genai import types
+import requests
+
+from vacore import VACore
+
+
+
+modname = os.path.basename(__file__)[:-3]  # calculating modname
+
+
+# функция на старте
+def start(core: VACore):
+    manifest = {
+        "name": "ИИ управление Home Assistant",
+        "version": "1.0",
+        "default_options": {
+            "api_key":"",
+            "AI_model":"",
+            "gpt_source":"",
+            "hassio_url": "http://ip:8123/",
+            "hassio_key": "",  # получить в /profile, "Долгосрочные токены доступа"
+            "default_reply": ["Сделано", "Готово", "Выполнено"],
+            "entity_id_blacklist" : "camera.xiaomi_cloud_map_extractor, update.*, sensor.sun*, *dafang*",
+            "entity_id_whitelist" : "",
+            "item_blacklist":"last_changed, last_reported, last_updated, context",
+            "prompt":"You are an expert in Home Assistant REST API. Your main aim is to convert user input written in natural language to Home Assistant REST API command."
+                            "If user ask you something about music, volume, tracks, albums, use media_player entities."
+                            "If user ask you to change volume in percentages, convert it to decimal an use only 1 digit after dot."
+                            "If user ask you to change brightness in percentages, use value as whole number, not as percentage."
+                            "If user ask you to increase or decrease volume read the current state value of the entity and add or subtract 0.2 from current sate value."
+                            "If user ask you to increase or decrease brightness read the current state value of the entity and add or subtract 50 from current sate value."
+                            "First step: you need to define which entity user calls in his phrase. "
+                            "Second step: find subject entity in the given Home Assistant structure. "
+                            "Third step: define which services are available for subject entity."
+                            "Fourth step: find which of the subject services suits best to the user action request from the phrase."
+                            "Optional step: if user asks you to show or tell something like temperature, time, or state of an entity, use the current state of the entity and put its value with a # marker."
+        },
+
+
+        "commands": {
+            "дом-дурачок": HA_AI,
+        }
+    }
+
+    return manifest
+
+def start_with_options(core:VACore, manifest:dict):
+    pass
+
+def matches_pattern(value, patterns):
+    if not value:
+        return False
+    return any(fnmatch.fnmatch(value, pattern) for pattern in patterns)
+
+def sanitize_tokens(attributes):
+    if isinstance(attributes, dict):
+        new_attrs = {}
+        for k, v in attributes.items():
+            if "token" in k.lower() or "icon" in k.lower():
+                continue
+            elif isinstance(v, dict):
+                new_attrs[k] = sanitize_tokens(v)
+            else:
+                new_attrs[k] = v
+        return new_attrs
+    return attributes
+
+def clean_json(data, entity_id_blacklist, entity_id_whitelist,item_blacklist):
+    entity_id_blacklist = format_dict(entity_id_blacklist)
+    entity_id_whitelist = format_dict(entity_id_whitelist)
+    item_blacklist = format_dict(item_blacklist)
+
+
+
+    filtered_data = []
+
+    for item in data:
+        domain = item.get("domain", "")
+        entity_id = item.get("entity_id", "")
+
+
+        if entity_id_whitelist:
+            if not matches_pattern(entity_id, entity_id_whitelist):
+                continue
+        else:
+            if matches_pattern(entity_id, entity_id_blacklist):
+                continue
+
+
+        clean_item = item.copy()
+        clean_item["attributes"] = sanitize_tokens(item.get("attributes", {}))
+
+
+        for key in item_blacklist:
+            clean_item.pop(key, None)
+
+        filtered_data.append(clean_item)
+
+    return filtered_data
+
+def format_dict(input_data):
+    if isinstance(input_data, str):
+        items = input_data.split(',')
+        return set(item.strip() for item in items if item.strip())
+    elif isinstance(input_data, (set, list)):
+        return set(item.strip() for item in input_data if item.strip())
+
+def get_ha_data(base_url, token):
+
+    url = f"{base_url}"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
+
+    response = requests.get(url, headers=headers, timeout=10)
+    return response.json()
+
+def extract_tool_calls(resp):
+
+    tool_calls = []
+
+    for call in resp.choices[0].message.tool_calls:
+        func_name = call.function.name
+        raw_args = call.function.arguments
+
+
+        args = json.loads(raw_args)
+
+
+        for k, v in args.items():
+            if isinstance(v, str):
+                try:
+                    nested = json.loads(v)
+                    args[k] = nested
+                except json.JSONDecodeError:
+                    pass  # leave as string if not valid JSON
+
+        tool_calls.append({
+            "function": func_name,
+            "arguments": args
+        })
+
+    return tool_calls
+
+def ha_vsegpt_ai(options,function,generation_params,user_input):
+    client = OpenAI(
+        api_key=options['api_key'],
+        base_url="https://api.vsegpt.ru/v1",
+    )
+
+    messages = [
+        {"role": "system", "content": options["prompt"]},
+        {"role": "user", "content": user_input}
+    ]
+
+    response = client.chat.completions.create(
+        tools=[
+            {
+                "type": "function",
+                "function": function
+            }
+        ],
+        messages=messages,
+        **generation_params
+    )
+    reply = None
+
+
+    if hasattr(response, 'choices') and response.choices:
+        choice = response.choices[0]
+        if hasattr(choice, 'message') and choice.message.tool_calls:
+            for call in choice.message.tool_calls:
+                # Process function arguments
+                args = call.function.arguments
+                if isinstance(args, str):
+                    args = json.loads(args)
+
+                try:
+                    api_ha_url = args["api_ha_url"]
+                    api_ha_data = json.loads(args["api_ha_data"].replace("'",'"'))
+
+                    r = requests.post(
+                        options["hassio_url"].rstrip("/") + api_ha_url,
+                        headers={"Authorization": f"Bearer {options['hassio_key']}"},
+                        json=api_ha_data
+                    )
+                    print(api_ha_url)
+                    print(str(api_ha_data))
+                except:
+                    pass
+
+                if "#" in args["api_ha_state_value"]:
+                    print(str(args["api_ha_state_value"]))
+                    reply = str(args["api_ha_state_value"])
+                elif r.status_code in (200, 201):
+                    reply = options["default_reply"][random.randint(0, len(options["default_reply"]) - 1)]
+                else:
+                    reply = None
+
+    return reply
+
+
+def ha_google_ai(options,function,generation_params,user_input):
+
+
+    client = genai.Client(api_key=options['api_key'])
+    tools = types.Tool(function_declarations=[function])
+    config = types.GenerateContentConfig(tools=[tools],tool_config=types.ToolConfig(function_calling_config=types.FunctionCallingConfig(mode=generation_params["tool_choice"])),
+        max_output_tokens=generation_params["max_tokens"],temperature=generation_params["temperature"],
+                                         candidate_count=generation_params["n"],system_instruction=options["prompt"])
+
+
+    response = client.models.generate_content(
+        config=config,model=generation_params["model"],contents=user_input
+    )
+
+    reply = None
+
+    if response.candidates[0].content.parts[0].function_call:
+        function_call = response.candidates[0].content.parts[0].function_call
+        args = function_call.args
+
+        try:
+            api_ha_url = args["api_ha_url"]
+            api_ha_data = json.loads(args["api_ha_data"].replace("'",'"'))
+
+            r = requests.post(
+                options["hassio_url"].rstrip("/") + api_ha_url,
+                headers={"Authorization": f"Bearer {options['hassio_key']}"},
+                json=api_ha_data
+            )
+            print(options["hassio_url"].rstrip("/") + api_ha_url)
+            print(str(api_ha_data))
+        except:
+            pass
+
+        if "#" in args["api_ha_state_value"]:
+            print(str(args["api_ha_state_value"]))
+            reply = str(args["api_ha_state_value"])
+        elif r.status_code in (200, 201):
+            reply = options["default_reply"][random.randint(0, len(options["default_reply"]) - 1)]
+
+
+    else:
+        print("No function call found in the response.")
+        print(response.text)
+
+    return reply
+
+
+
+def HA_AI(core: VACore,phrase:str):
+    options = core.plugin_options(modname)
+
+    ha_entities = get_ha_data(options["hassio_url"] + "api/states", options["hassio_key"])
+    ha_entities = clean_json(ha_entities, options["entity_id_blacklist"], options["entity_id_whitelist"],
+                             options["item_blacklist"])
+
+    TextToHomeAssistantAPI={"name": "TextToHomeAssistantAPI", "description": f"{ha_entities}Based on the information above, you should use user input and create a command for Home Assistant REST API",
+                                              "parameters": {"type": "object", "properties": {
+                                                  "api_ha_url": {"type": "string",
+                                                                 "description": "Ending for Home Assistant REST API url like '/api/services/domain/service'."},
+                                                  "api_ha_data": {"type": "string",
+                                                                  "description": "Data for the requested entity to be sent to Home Assistant REST API."},
+                                                  "api_ha_state_value": {"type": "string",
+                                                                         "description": "Current state of the entity. If user asks you to show or tell something like temperature, time, or state of an entity, use the current state of the entity and put its value with a # marker."} },
+                                                             "required": ["api_ha_url", "api_ha_data","api_ha_state_value"]}}
+
+
+    generation_params = {
+        "temperature": 0.1,
+        "n": 1,
+        "max_tokens": 1500,
+        "stream": False,
+        "tool_choice": "auto",
+        "model" : options['AI_model']
+    }
+
+
+    user_input="role:user, input:"+phrase
+    try:
+        if options["gpt_source"]=="Google":
+            reply = ha_google_ai(options, TextToHomeAssistantAPI,generation_params,user_input)
+        else:
+            reply = ha_vsegpt_ai(options, TextToHomeAssistantAPI,generation_params,user_input)
+
+        core.play_voice_assistant_speech(reply)
+        print(reply)
+
+    except Exception as e:
+        reply = "Нейросеть не распознала команду"
+        core.play_voice_assistant_speech(reply)
+        print("⚠️ Error:", e, "\n")
+
+
+
