@@ -123,33 +123,6 @@ def get_ha_data(base_url, token):
     response = requests.get(url, headers=headers, timeout=10)
     return response.json()
 
-def extract_tool_calls(resp):
-
-    tool_calls = []
-
-    for call in resp.choices[0].message.tool_calls:
-        func_name = call.function.name
-        raw_args = call.function.arguments
-
-
-        args = json.loads(raw_args)
-
-
-        for k, v in args.items():
-            if isinstance(v, str):
-                try:
-                    nested = json.loads(v)
-                    args[k] = nested
-                except json.JSONDecodeError:
-                    pass  # leave as string if not valid JSON
-
-        tool_calls.append({
-            "function": func_name,
-            "arguments": args
-        })
-
-    return tool_calls
-
 def ha_vsegpt_ai(options,function,generation_params,user_input):
     client = OpenAI(
         api_key=options['api_key'],
