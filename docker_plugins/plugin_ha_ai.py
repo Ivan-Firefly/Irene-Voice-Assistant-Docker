@@ -197,8 +197,8 @@ def ha_vsegpt_ai(options,function,generation_params,user_input):
                     pass
 
                 if "#" in args["api_ha_state_value"]:
-                    print(str(args["api_ha_state_value"]))
-                    reply = str(args["api_ha_state_value"])
+                    reply = str(args["api_ha_state_value"]).replace("#","")
+                    print(reply)
                 elif r.status_code in (200, 201):
                     reply = options["default_reply"][random.randint(0, len(options["default_reply"]) - 1)]
                 else:
@@ -241,9 +241,9 @@ def ha_google_ai(options,function,generation_params,user_input):
         except:
             pass
 
-        if "#" in args["api_ha_state_value"]:
-            print(str(args["api_ha_state_value"]))
-            reply = str(args["api_ha_state_value"])
+        if "#" in args["api_ha_state_value"]:           
+            reply = str(args["api_ha_state_value"]).replace("#","")
+            print(reply)
         elif r.status_code in (200, 201):
             reply = options["default_reply"][random.randint(0, len(options["default_reply"]) - 1)]
 
