@@ -19,6 +19,7 @@ def start(core: VACore):
     manifest = {
         "name": "ИИ управление Home Assistant",
         "version": "1.0",
+        'require_online': True,
         "default_options": {
             "api_key":"",
             "AI_model":"",
