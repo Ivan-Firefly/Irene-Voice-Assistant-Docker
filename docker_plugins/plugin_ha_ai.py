@@ -2,9 +2,6 @@ import fnmatch
 import json
 import os
 import random
-from openai import OpenAI
-from google import genai
-from google.genai import types
 import requests
 
 from vacore import VACore
@@ -23,24 +20,25 @@ def start(core: VACore):
         "default_options": {
             "api_key":"",
             "AI_model":"",
-            "gpt_source":"",
+            "base_url":"", # для google - https://generativelanguage.googleapis.com/v1beta/models/, для vsegpt - https://api.vsegpt.ru/v1, так же можно использовать и локальные LLM.
             "hassio_url": "http://ip:8123/",
             "hassio_key": "",  # получить в /profile, "Долгосрочные токены доступа"
             "default_reply": ["Сделано", "Готово", "Выполнено"],
-            "entity_id_blacklist" : "camera.xiaomi_cloud_map_extractor, update.*, sensor.sun*, *dafang*",
-            "entity_id_whitelist" : "",
-            "item_blacklist":"last_changed, last_reported, last_updated, context",
-            "prompt":"You are an expert in Home Assistant REST API. Your main aim is to convert user input written in natural language to Home Assistant REST API command."
+            "entity_id_blacklist" : "camera.xiaomi_cloud_map_extractor, update.*, sensor.sun*, *dafang*",  # сюда через запятую можно указывать устройства из ХА которые не будут отправлятся в ИИ (вам есть что скрывать, либо устройство генерирует кучу бесполезных состояний).
+            "entity_id_whitelist" : "", # если есть хоть один символ/устройство в этом листе, у него появлятся приоритет над black list и соостветсвенно в ИИ уйдут только те устройства, что перечислены в белом листе (самый эффективный способ уменьшения кол-ва токенов).
+            "item_blacklist":"last_changed, last_reported, last_updated, context", # нектороые устройство в ХА черезчур "богаты" на параметры и атрибуты. Опять же для сокращения кол-ва токенов можно из каждого устройства убрать типовые лишние параметры (когда было включено, когда последний раз было опрос и т.д.).
+            "prompt":"You are an expert in Home Assistant REST API. Your main aim is to convert user input written in natural language to Home Assistant REST API command."  #это "системные правила" для ИИ. Его можно (и нужно) настривать под себя, чтоб добится наилучшего "понимания" контекста. Способ выдачи ответа (функция) описан внутри кода в переменной TextToHomeAssistantAPI (в настройки не вынесена), она же которая передается в tools.
                             "If user ask you something about music, volume, tracks, albums, use media_player entities."
                             "If user ask you to change volume in percentages, convert it to decimal an use only 1 digit after dot."
                             "If user ask you to change brightness in percentages, use value as whole number, not as percentage."
                             "If user ask you to increase or decrease volume read the current state value of the entity and add or subtract 0.2 from current sate value."
                             "If user ask you to increase or decrease brightness read the current state value of the entity and add or subtract 50 from current sate value."
-                            "First step: you need to define which entity user calls in his phrase. "
-                            "Second step: find subject entity in the given Home Assistant structure. "
+                            "First step: you need to define which entity user calls in his phrase."
+                            "Second step: find subject entity in the given Home Assistant structure. Don't make up non-existing entities, actions, or parameters; use only entities from the user input.If you can't find existing entity in provided by user Home Assistant structure, put 404."
                             "Third step: define which services are available for subject entity."
-                            "Fourth step: find which of the subject services suits best to the user action request from the phrase."
+                            "Fourth step: find which of the subject services suits best to the user action request from the phrase. Don't make up non-existing entities, actions, or parameters; use only entities from the user input. If you can't find existing service in provided by user Home Assistant structure, put 404."
                             "Optional step: if user asks you to show or tell something like temperature, time, or state of an entity, use the current state of the entity and put its value with a # marker."
+
         },
 
 
@@ -123,108 +121,150 @@ def get_ha_data(base_url, token):
     response = requests.get(url, headers=headers, timeout=10)
     return response.json()
 
-def ha_vsegpt_ai(options,function,generation_params,user_input):
-    client = OpenAI(
-        api_key=options['api_key'],
-        base_url="https://api.vsegpt.ru/v1",
-    )
+def ha_vsegpt_ai(options, function, generation_params, user_input):
+    url = f"{options['base_url'].rstrip('/')}/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {options['api_key']}",
+        "Content-Type": "application/json",
+    }
 
-    messages = [
-        {"role": "system", "content": options["prompt"]},
-        {"role": "user", "content": user_input}
-    ]
-
-    response = client.chat.completions.create(
-        tools=[
+    payload = {
+        "messages": [
+            {"role": "system", "content": options["prompt"]},
+            {"role": "user", "content": user_input}
+        ],
+        "tools": [
             {
                 "type": "function",
                 "function": function
             }
         ],
-        messages=messages,
         **generation_params
-    )
+    }
+
+    response = requests.post(url, headers=headers, json=payload)
+    response=response.json()
+    print(response)
     reply = None
 
+    if "choices" in response and response["choices"]:
+        choice = response["choices"][0]
 
-    if hasattr(response, 'choices') and response.choices:
-        choice = response.choices[0]
-        if hasattr(choice, 'message') and choice.message.tool_calls:
-            for call in choice.message.tool_calls:
-                # Process function arguments
-                args = call.function.arguments
-                if isinstance(args, str):
-                    args = json.loads(args)
+        # check if tool calls are present
+        message = choice.get("message", {})
+        tool_calls = message.get("tool_calls", [])
 
-                try:
-                    api_ha_url = args["api_ha_url"]
-                    api_ha_data = json.loads(args["api_ha_data"].replace("'",'"'))
+        for call in tool_calls:
+            args = call["function"]["arguments"]
 
-                    r = requests.post(
-                        options["hassio_url"].rstrip("/") + api_ha_url,
-                        headers={"Authorization": f"Bearer {options['hassio_key']}"},
-                        json=api_ha_data
-                    )
-                    print(api_ha_url)
-                    print(str(api_ha_data))
-                except:
-                    pass
+            if isinstance(args, str):
+                args = json.loads(args)
 
-                if "#" in args["api_ha_state_value"]:
-                    reply = str(args["api_ha_state_value"]).replace("#","")
-                    print(reply)
-                elif r.status_code in (200, 201):
-                    reply = options["default_reply"][random.randint(0, len(options["default_reply"]) - 1)]
-                else:
-                    reply = None
+            try:
+                api_ha_url = args["api_ha_url"]
+                api_ha_data = json.loads(args["api_ha_data"].replace("'", '"'))
+
+                r = requests.post(
+                    options["hassio_url"].rstrip("/") + api_ha_url,
+                    headers={"Authorization": f"Bearer {options['hassio_key']}"},
+                    json=api_ha_data
+                )
+                print(api_ha_url)
+                print(str(api_ha_data))
+            except Exception as e:
+                print("Error processing tool call:", e)
+                r = None  # ensure r is defined
+
+            if "#" in args.get("api_ha_state_value", ""):
+                reply = str(args["api_ha_state_value"]).replace("#", "")
+                print(reply)
+            elif r is not None and r.status_code in (200, 201):
+                reply = options["default_reply"][random.randint(0, len(options["default_reply"]) - 1)]
+            else:
+                reply = None
 
     return reply
 
 
-def ha_google_ai(options,function,generation_params,user_input):
+def ha_google_ai(options, function, generation_params, user_input):
+    """
+    Calls a Google-compatible GenAI REST endpoint using HTTP POST instead of the `genai` Python client.
+    """
+
+    # Construct the REST endpoint URL
+    url = f"{options['base_url']}{generation_params["model"]}:generateContent?key={options['api_key']}"
 
 
-    client = genai.Client(api_key=options['api_key'])
-    tools = types.Tool(function_declarations=[function])
-    config = types.GenerateContentConfig(tools=[tools],tool_config=types.ToolConfig(function_calling_config=types.FunctionCallingConfig(mode=generation_params["tool_choice"])),
-        max_output_tokens=generation_params["max_tokens"],temperature=generation_params["temperature"],
-                                         candidate_count=generation_params["n"],system_instruction=options["prompt"])
+    headers = {
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "contents": [{"role": "user", "parts": [{"text": user_input}]}],
+        "system_instruction": {"parts": [{"text": options["prompt"]}]},
+        "tools": [{"function_declarations": [function]}],
+        "tool_config": {
+            "function_calling_config": {
+                "mode": generation_params.get("tool_choice", "AUTO")
+            }
+        },
+        "generationConfig": {
+            "maxOutputTokens": generation_params.get("max_tokens"),
+            "temperature": generation_params.get("temperature"),
+            "candidateCount": generation_params.get("n", 1)
+        }
+    }
+
+    response = requests.post(url, headers=headers, json=payload)
 
 
-    response = client.models.generate_content(
-        config=config,model=generation_params["model"],contents=user_input
-    )
+    response=response.json()
+    print(response)
+    reply=None
+    try:
 
-    reply = None
+        candidates = response.get("candidates", [])
+        if not candidates:
+            print("No candidates in response.")
+            return None
 
-    if response.candidates[0].content.parts[0].function_call:
-        function_call = response.candidates[0].content.parts[0].function_call
-        args = function_call.args
+        parts = candidates[0].get("content", {}).get("parts", [])
+        if not parts:
+            print("No parts in candidate response.")
+            return None
 
-        try:
-            api_ha_url = args["api_ha_url"]
-            api_ha_data = json.loads(args["api_ha_data"].replace("'",'"'))
+        function_call = parts[0].get("functionCall")
+        if function_call:
+            args = function_call.get("args", {})
 
-            r = requests.post(
-                options["hassio_url"].rstrip("/") + api_ha_url,
-                headers={"Authorization": f"Bearer {options['hassio_key']}"},
-                json=api_ha_data
-            )
-            print(options["hassio_url"].rstrip("/") + api_ha_url)
-            print(str(api_ha_data))
-        except:
-            pass
+            try:
+                api_ha_url = args.get("api_ha_url")
+                api_ha_data = json.loads(args.get("api_ha_data", "{}").replace("'", '"'))
 
-        if "#" in args["api_ha_state_value"]:           
-            reply = str(args["api_ha_state_value"]).replace("#","")
-            print(reply)
-        elif r.status_code in (200, 201):
-            reply = options["default_reply"][random.randint(0, len(options["default_reply"]) - 1)]
+                r = requests.post(
+                    options["hassio_url"].rstrip("/") + api_ha_url,
+                    headers={"Authorization": f"Bearer {options['hassio_key']}"},
+                    json=api_ha_data
+                )
+                print(options["hassio_url"].rstrip("/") + api_ha_url)
+                print(str(api_ha_data))
+            except Exception as e:
+                print("Error processing function args:", e)
+                r = None
 
+            if "#" in args.get("api_ha_state_value", ""):
+                reply = str(args["api_ha_state_value"]).replace("#", "")
+                print(reply)
+            elif r is not None and r.status_code in (200, 201):
+                reply = options["default_reply"][random.randint(0, len(options["default_reply"]) - 1)]
 
-    else:
-        print("No function call found in the response.")
-        print(response.text)
+        else:
+            print("No function call found in the response.")
+            print(response)
+
+    except Exception as e:
+        print("Error parsing response:", e)
+        print(response)
 
     return reply
 
@@ -240,9 +280,9 @@ def HA_AI(core: VACore,phrase:str):
     TextToHomeAssistantAPI={"name": "TextToHomeAssistantAPI", "description": f"{ha_entities}Based on the information above, you should use user input and create a command for Home Assistant REST API",
                                               "parameters": {"type": "object", "properties": {
                                                   "api_ha_url": {"type": "string",
-                                                                 "description": "Ending for Home Assistant REST API url like '/api/services/domain/service'."},
+                                                                 "description": "Ending for Home Assistant REST API url like '/api/services/domain/service'.Don't make up non-existing entities, actions, or parameters; use only entities from the user input. If you can't find existing service in provided by user Home Assistant structure, put 404"},
                                                   "api_ha_data": {"type": "string",
-                                                                  "description": "Data for the requested entity to be sent to Home Assistant REST API."},
+                                                                  "description": "Data for the requested entity to be sent to Home Assistant REST API.Don't make up non-existing entities, actions, or parameters; use only entities from the user input. If you can't find existing entity in provided by user Home Assistant structure, put 404"},
                                                   "api_ha_state_value": {"type": "string",
                                                                          "description": "Current state of the entity. If user asks you to show or tell something like temperature, time, or state of an entity, use the current state of the entity and put its value with a # marker."} },
                                                              "required": ["api_ha_url", "api_ha_data","api_ha_state_value"]}}
@@ -260,7 +300,7 @@ def HA_AI(core: VACore,phrase:str):
 
     user_input="role:user, input:"+phrase
     try:
-        if options["gpt_source"]=="Google":
+        if "google" in options["base_url"]:
             reply = ha_google_ai(options, TextToHomeAssistantAPI,generation_params,user_input)
         else:
             reply = ha_vsegpt_ai(options, TextToHomeAssistantAPI,generation_params,user_input)
@@ -272,6 +312,5 @@ def HA_AI(core: VACore,phrase:str):
         reply = "Нейросеть не распознала команду"
         core.play_voice_assistant_speech(reply)
         print("⚠️ Error:", e, "\n")
-
 
 
